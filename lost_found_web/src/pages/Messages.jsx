@@ -38,6 +38,7 @@ export default function Messages() {
     switch (type) {
       case 'CLAIM_APPLY': return <Tag color="blue">认领申请</Tag>
       case 'CLAIM_RESULT': return <Tag color="green">认领结果</Tag>
+      case 'FOUND_NOTIFY': return <Tag color="orange">物品找到</Tag>
       default: return <Tag>系统通知</Tag>
     }
   }
@@ -59,6 +60,8 @@ export default function Messages() {
                 avatar={
                   item.type === 'CLAIM_RESULT'
                     ? <CheckCircleOutlined style={{ fontSize: 24, color: item.content?.includes('通过') ? '#52c41a' : '#ff4d4f' }} />
+                    : item.type === 'FOUND_NOTIFY'
+                    ? <CheckCircleOutlined style={{ fontSize: 24, color: '#faad14' }} />
                     : <BellOutlined style={{ fontSize: 24, color: '#1890ff' }} />
                 }
                 title={

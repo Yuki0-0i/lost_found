@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, Button, Space, Tag, message, Modal, Form, Input, Tabs, List, Avatar, Empty } from 'antd'
-import { EnvironmentOutlined, PhoneOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons'
+import { EnvironmentOutlined, PhoneOutlined, ClockCircleOutlined, UserOutlined, BellOutlined } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import dayjs from 'dayjs'
@@ -13,7 +13,9 @@ export default function ItemDetail() {
   const [item, setItem] = useState(null)
   const [claims, setClaims] = useState([])
   const [applyModal, setApplyModal] = useState(false)
+  const [notifyModal, setNotifyModal] = useState(false)
   const [claimForm] = Form.useForm()
+  const [notifyForm] = Form.useForm()
   const [activeTab, setActiveTab] = useState('detail')
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -47,6 +49,7 @@ export default function ItemDetail() {
     if (key === 'claims') fetchClaims()
   }
 
+  // 失物招领 - 申请认领
   const handleApply = async (values) => {
     try {
       await axios.post('/api/claims', {
@@ -61,6 +64,27 @@ export default function ItemDetail() {
       claimForm.resetFields()
     } catch (err) {
       message.error(err.response?.data?.message || '申请失败')
+    }
+  }
+
+  // 寻物启事 - 通知发布者
+  const handleNotify = async (values) => {
+    try {
+      await axios.post('/api/messages/notify', {
+        userId: item.userId,
+        itemId: parseInt(id),
+        foundLocation: values.foundLocation,
+        foundTime: values.foundTime?.format('YYYY-MM-DDTHH:mm:ss'),
+        contactInfo: values.contactInfo,
+        message: values.message
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      message.success('已通知发布者，Ta会收到您的消息')
+      setNotifyModal(false)
+      notifyForm.resetFields()
+    } catch (err) {
+      message.error(err.response?.data?.message || '发送失败')
     }
   }
 
@@ -98,6 +122,7 @@ export default function ItemDetail() {
 
   const isOwner = currentUser.role === 'ADMIN' || currentUser.id === item?.userId
   const canApply = currentUser.id && !isOwner && item?.type === 'FOUND' && !item?.isResolved
+  const canNotify = currentUser.id && !isOwner && item?.type === 'LOST' && !item?.isResolved
 
   if (!item) return null
 
@@ -112,7 +137,8 @@ export default function ItemDetail() {
         cover={item.images && <img alt={item.name} src={item.images} style={{ maxHeight: 400, objectFit: 'contain' }} />}
         actions={[
           canApply && <Button type="primary" onClick={() => setApplyModal(true)}>我要认领</Button>,
-          !currentUser.id && <Button onClick={() => navigate('/login')}>登录后认领</Button>
+          canNotify && <Button type="primary" icon={<BellOutlined />} onClick={() => setNotifyModal(true)}>我捡到了</Button>,
+          !currentUser.id && <Button onClick={() => navigate('/login')}>登录后操作</Button>
         ].filter(Boolean)}
       >
         <Tabs items={tabItems} activeKey={activeTab} onChange={handleTabChange} />
@@ -177,6 +203,7 @@ export default function ItemDetail() {
         )}
       </Card>
 
+      {/* 失物招领 - 申请认领 */}
       <Modal title="申请认领" open={applyModal} onCancel={() => setApplyModal(false)} footer={null}>
         <Form form={claimForm} onFinish={handleApply} layout="vertical">
           <Form.Item name="verifyInfo" label="物品验证信息" rules={[{ required: true, message: '请填写验证信息' }]}>
@@ -189,6 +216,30 @@ export default function ItemDetail() {
             <Space>
               <Button type="primary" htmlType="submit">提交申请</Button>
               <Button onClick={() => setApplyModal(false)}>取消</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 寻物启事 - 通知发布者 */}
+      <Modal title="我捡到了" open={notifyModal} onCancel={() => setNotifyModal(false)} footer={null}>
+        <Form form={notifyForm} onFinish={handleNotify} layout="vertical">
+          <Form.Item name="foundLocation" label="捡到地点" rules={[{ required: true, message: '请填写捡到地点' }]}>
+            <Input placeholder="请描述捡到物品的具体地点" />
+          </Form.Item>
+          <Form.Item name="foundTime" label="捡到时间" rules={[{ required: true, message: '请选择捡到时间' }]}>
+            <Input type="datetime-local" />
+          </Form.Item>
+          <Form.Item name="contactInfo" label="您的联系方式" rules={[{ required: true, message: '请填写联系方式' }]}>
+            <Input placeholder="手机号或微信" />
+          </Form.Item>
+          <Form.Item name="message" label="补充说明（选填）">
+            <TextArea rows={2} placeholder="物品特征描述等" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">发送通知</Button>
+              <Button onClick={() => setNotifyModal(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>
