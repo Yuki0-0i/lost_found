@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Tag, Button, Space, message, Empty, Spin, Tabs, Modal, Form, Input, Select, DatePicker, Row, Col } from 'antd'
-import { EnvironmentOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, SearchOutlined, ClearOutlined } from '@ant-design/icons'
+import { Card, Tag, Button, Space, message, Empty, Spin, Tabs, Modal, Form, Input, Select, DatePicker, Row, Col, Collapse, Progress, Typography } from 'antd'
+import { EnvironmentOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, SearchOutlined, ClearOutlined, RobotOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getItems, deleteItem, updateItem } from '../api'
+import { getItems, deleteItem, updateItem, aiMatch } from '../api'
 import NoticeBanner from '../components/NoticeBanner'
 import dayjs from 'dayjs'
 
@@ -18,6 +18,9 @@ export default function ItemList() {
   const [editItem, setEditItem] = useState(null)
   const [editForm] = Form.useForm()
   const [filters, setFilters] = useState({ category: '全部', location: '全部', status: '全部', keyword: '' })
+  const [aiQuery, setAiQuery] = useState('')
+  const [aiResults, setAiResults] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
   const navigate = useNavigate()
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -110,6 +113,19 @@ export default function ItemList() {
     setFilters({ category: '全部', location: '全部', status: '全部', keyword: '' })
   }
 
+  const handleAiSearch = async () => {
+    if (!aiQuery.trim()) return
+    setAiLoading(true)
+    try {
+      const res = await aiMatch(aiQuery.trim())
+      setAiResults(res.data?.results || [])
+    } catch {
+      message.error('AI 匹配服务暂不可用')
+      setAiResults([])
+    }
+    setAiLoading(false)
+  }
+
   const displayItems = items.filter(item => {
     if (activeTab === 'lost' && item.type !== 'LOST') return false
     if (activeTab === 'found' && item.type !== 'FOUND') return false
@@ -120,6 +136,75 @@ export default function ItemList() {
   return (
     <div>
       <NoticeBanner />
+
+      <Collapse
+        items={[{
+          key: 'ai',
+          label: <span><RobotOutlined style={{ color: '#1677ff', marginRight: 8 }} />AI 智能匹配 — 描述你丢失的物品，AI 帮你精准匹配</span>,
+          children: (
+            <div>
+              <Row gutter={12} style={{ marginBottom: 16 }}>
+                <Col flex="auto">
+                  <Input
+                    size="large"
+                    placeholder="例如：黑色无线耳机，左耳有划痕，在图书馆丢的"
+                    value={aiQuery}
+                    onChange={e => setAiQuery(e.target.value)}
+                    onPressEnter={handleAiSearch}
+                    allowClear
+                  />
+                </Col>
+                <Col>
+                  <Button type="primary" size="large" icon={<ThunderboltOutlined />}
+                    loading={aiLoading} onClick={handleAiSearch}>
+                    AI 匹配
+                  </Button>
+                </Col>
+              </Row>
+
+              {aiResults && (
+                aiResults.length === 0 ? (
+                  <Empty description="暂无匹配结果，试试换个描述" />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {aiResults.map((r, i) => (
+                      <Card key={r.itemId} size="small" hoverable
+                        onClick={() => navigate(`/detail/${r.itemId}`)}
+                        style={{ borderLeft: `4px solid ${r.score >= 70 ? '#52c41a' : r.score >= 40 ? '#faad14' : '#d9d9d9'}` }}>
+                        <Row align="middle" gutter={16}>
+                          <Col flex="60px" style={{ textAlign: 'center' }}>
+                            <Progress type="circle" percent={r.score} size={48}
+                              strokeColor={r.score >= 70 ? '#52c41a' : r.score >= 40 ? '#faad14' : '#d9d9d9'}
+                              format={p => `${p}%`} />
+                          </Col>
+                          <Col flex="auto">
+                            <Space>
+                              <Tag className={r.type === 'LOST' ? 'tag-lost' : 'tag-found'}>
+                                {r.type === 'LOST' ? '寻物' : '招领'}
+                              </Tag>
+                              <Typography.Text strong>{r.name}</Typography.Text>
+                              <Typography.Text type="secondary">#{i + 1}</Typography.Text>
+                            </Space>
+                            <div style={{ marginTop: 4, color: '#666', fontSize: 13 }}>
+                              <span>{r.category}</span>
+                              {r.location && <span> · <EnvironmentOutlined /> {r.location}</span>}
+                            </div>
+                            <div style={{ marginTop: 4, color: '#1677ff', fontSize: 13 }}>
+                              匹配理由：{r.reason}
+                            </div>
+                          </Col>
+                        </Row>
+                      </Card>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          )
+        }]}
+        style={{ marginBottom: 16 }}
+      />
+
       <Tabs items={tabItems} activeKey={activeTab} onChange={handleTabChange} style={{ marginBottom: 16 }} />
 
       <Card style={{ marginBottom: 16 }}>
