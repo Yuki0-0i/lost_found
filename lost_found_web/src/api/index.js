@@ -63,3 +63,6 @@ export const getNotices = () => api.get('/notices')
 // ============ 用户相关 ============
 export const updateProfile = (data) => api.put('/users/profile', data)
 export const updatePassword = (data) => api.put('/users/password', data)
+
+// ============ AI 匹配相关 ============
+export const aiMatch = (query) => api.get(`/ai/match?query=${encodeURIComponent(query)}`)

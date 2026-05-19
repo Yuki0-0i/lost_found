@@ -7,3 +7,8 @@ build/
 .claude/
 .idea/
 .vscode/
+tools/
+*.zip
+target/
+ai_service/.venv/
+ai_service/__pycache__/
